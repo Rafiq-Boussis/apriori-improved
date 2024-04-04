@@ -144,7 +144,6 @@ def run_algorithm():
                 break
 
             for item_set in post_pruning_candidates:
-                min_support = 1
                 selected_item_transactionIDs = []
                 for item in item_set:
                     for tuple_item in frequent_item_sets_per_level[1]:
