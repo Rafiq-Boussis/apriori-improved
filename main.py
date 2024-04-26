@@ -4,12 +4,25 @@ from itertools import combinations
 from collections import defaultdict
 import math
 
+item_list = list(df.columns)
+item_dict = dict()
 
-import pandas as pd
-import numpy as np
-from itertools import combinations
-from collections import defaultdict
-import math
+for i, item in enumerate(item_list):
+    item_dict[item] = i + 1
+
+item_dict
+
+transactions = list()
+
+for i, row in df.iterrows():
+    transaction = set()
+    
+    for item in item_dict:
+        if row[item] == 't':
+            transaction.add(item_dict[item])
+    transactions.append(transaction)
+    
+transactions
 
 def get_support(transactions, item_set):
     match_count = 0
@@ -27,7 +40,7 @@ def optimized_get_support(transactions, item_set, min_item, dict_TID):
         if item_set.issubset(transactions[transaction - 1]):
             match_count += 1
     return float(match_count/len(transactions))
-    
+
 
 def get_TID_item(transactions, item):
     TID = 1
@@ -68,7 +81,6 @@ def self_join(frequent_item_sets_per_level, level):
                 
     return current_level_candidates
 
-
 def get_single_drop_subsets(item_set):
     single_drop_subsets = list()
     for item in item_set:
@@ -77,6 +89,7 @@ def get_single_drop_subsets(item_set):
         single_drop_subsets.append(temp)
         
     return single_drop_subsets
+
 
 def is_valid_set(item_set, prev_level_sets):
     single_drop_subsets = get_single_drop_subsets(item_set)
@@ -115,18 +128,21 @@ def get_interest_items(item_list, transactions):
     num_interest_items = math.ceil(num_interest_items)    
 
     return num_interest_items
+    
+
+interest_items = get_interest_items(item_list, transactions)
 
 
 def get_min_support(interest_items, list_support_items):
     """
     This function aims to determine the minimum support value for the Apriori algorithm. It requires the following inputs:
-    - `interest_items`: A sorted list of item supports in ascending order.
-    - `list_support_items`: The number of items used to calculate the support.
+    - `list_support_items`: A sorted list of item supports in ascending order.
+    - `interest_items`: The number of items used to calculate the support.
     - `start_index`: The starting index for selecting the first interest item.
     """
     min_supp = 0
 
-    if list_support_items:
+    if len(list_support_items) >=  interest_items:
 
        for index in range(interest_items):
           min_supp += list_support_items[index]
@@ -135,8 +151,8 @@ def get_min_support(interest_items, list_support_items):
 
        return min_supp
     else:
-       return print("No more items inside list_support_items")
-    
+         print("No more items inside list_support_items")
+
 
 def apriori(min_support):
     frequent_item_sets_per_level = defaultdict(list) #the problem is here try to fix it
@@ -151,8 +167,7 @@ def apriori(min_support):
             frequent_item_sets_per_level[1].append(({item}, support))
     # print("Here is the dict_TID:")
     # print(dict_TID)   
-    print("Blablfjsdlj")
-    print(frequent_item_sets_per_level)
+    # print(frequent_item_sets_per_level)
     
     for level in range(2, len(item_list) + 1):
         # print(level, end = " ")
@@ -175,9 +190,24 @@ def apriori(min_support):
             if support >= min_support:
                 frequent_item_sets_per_level[level].append((item_set, support))
                 
-    print("2222222222222")
-    print(frequent_item_sets_per_level)
+
+    # print(frequent_item_sets_per_level)
     return frequent_item_sets_per_level
+
+min_support = get_min_support(interest_items, list_support_items)
+
+item_support_dict = dict()
+items_list = list()
+
+key_list = list(item_dict.keys())
+val_list = list(item_dict.values())
+
+for level in frequent_item_sets_per_level:
+    for set_support_pair in frequent_item_sets_per_level[level]:
+        for i in set_support_pair[0]:
+            items_list.append(key_list[val_list.index(i)])
+        item_support_dict[frozenset(items_list)] = set_support_pair[1]
+        items_list = list()
 
 def find_subset(item, item_length):
     combs = []
@@ -190,6 +220,7 @@ def find_subset(item, item_length):
             subsets.append(elt)
             
     return subsets
+
 
 def association_rule(min_confidence, support_dict):
     rules = list()
@@ -209,82 +240,59 @@ def association_rule(min_confidence, support_dict):
                     
                     confidence = support_dict[AB] / support_dict[A]
                     lift = support_dict[AB] / (support_dict[A] * support_dict[B])
-                    print(f"Value of lif for {A} and {B} is {lift}")
+                    # print(f"Value of lift for {A} and {B} is {lift}")
                     if confidence >= min_confidence and lift > 1:
                         rules.append((A, B, confidence))
     
     return rules
 
 
-df = pd.read_csv("test1.csv", low_memory=False)
+min_confidence = 0.8
 
-item_list = list(df.columns)
-item_dict = dict()
+association_rules = association_rule(min_confidence, item_support_dict)
 
-for i, item in enumerate(item_list):
-    item_dict[item] = i + 1
+is_optimal_min_supp = False
+threshold = int(len(transactions) * 30 / 100)
+# print(f"The value of Threshold is: {threshold}")
 
-transactions = list()
+while not is_optimal_min_supp:
 
-for i, row in df.iterrows():
-    transaction = set()
+    if len(association_rules) < threshold:
+        if len(list_support_items) > interest_items:  
+            list_support_items.pop(0)
+            min_support = get_min_support(interest_items, list_support_items)
+            # print(f"The value of min_support is {min_support}")
+
+            frequent_item_sets = apriori(min_support)
+            
+            print(frequent_item_sets)
+            item_support_dict = dict()
+            items_list = list()
+
+            key_list = list(item_dict.keys())
+            val_list = list(item_dict.values())
+
+            for level in frequent_item_sets:
+                for set_support_pair in frequent_item_sets[level]:
+                    for i in set_support_pair[0]:
+                        items_list.append(key_list[val_list.index(i)])
+                    item_support_dict[frozenset(items_list)] = set_support_pair[1]
+                    items_list = list()
+            # print(item_support_dict)
+            
+            association_rules = association_rule(min_confidence, item_support_dict)
+            print("Number of rules: ", len(association_rules), "\n")
+        else:
+            # print("no more possible values of min support!")
+            # print("Threshold was higher than anticipated")
+            # print(f"Best possible min support is: {min_support}")
+            break
+
+    else:
+        # print(f"Optimal min support is {min_support}")
+        is_optimal_min_supp = True
+        
     
-    for item in item_dict:
-        if row[item] == 't':
-            transaction.add(item_dict[item])
-    transactions.append(transaction)
 
-list_support_items = items_support(item_list, transactions)
-
-interest_items = get_interest_items(item_list, transactions)
-
-start_index = 0
-min_support = 0.3
-
-print(f"The value of min_support is {min_support}")
-frequent_item_sets_per_level = apriori(min_support)
-
-item_support_dict = dict()
-item_list = list()
-
-key_list = list(item_dict.keys())
-val_list = list(item_dict.values())
-
-for level in frequent_item_sets_per_level:
-    for set_support_pair in frequent_item_sets_per_level[level]:
-        for i in set_support_pair[0]:
-            item_list.append(key_list[val_list.index(i)])
-        item_support_dict[frozenset(item_list)] = set_support_pair[1]
-        item_list = list()
-
-min_confidence = 0.5
-
-association_rules = association_rule(min_confidence, item_support_dict)
-
-print("Number of rules: ", len(association_rules), "\n")
-
-print("=================================== Second Try =====================================")
-
-min_support = 0.4
-
-print(f"The value of min_support is {min_support}")
-frequent_item_sets_per_level = apriori(min_support)
-
-item_support_dict = dict()
-item_list = list()
-
-key_list = list(item_dict.keys())
-val_list = list(item_dict.values())
-
-for level in frequent_item_sets_per_level:
-    for set_support_pair in frequent_item_sets_per_level[level]:
-        for i in set_support_pair[0]:
-            item_list.append(key_list[val_list.index(i)])
-        item_support_dict[frozenset(item_list)] = set_support_pair[1]
-        item_list = list()
-
-min_confidence = 0.5
-
-association_rules = association_rule(min_confidence, item_support_dict)
-
-print("Number of rules: ", len(association_rules), "\n")
+    
+        
